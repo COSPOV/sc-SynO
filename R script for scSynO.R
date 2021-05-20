@@ -36,8 +36,8 @@ library("psych")   # needed for the dfOrder function
 setwd(".../bus_output_FztDU") 	# Single-nuclei raw data of the Fzt:DU mice strain processed with the kallisto bustools pipeline as described in Wolfien et al. 2020 (https://doi.org/10.3390/cells9020318) script also available in FairdomHub
 setwd(".../bus_output_bl6")  	# Single-nuclei raw data of the BL6 mice strain processed with the kallisto bustools pipeline as described Wolfien et al. 2020 (https://doi.org/10.3390/cells9020318) script also available in FairdomHub
 data_dir_vid <- "../cellranger_vidal/outs/filtered_feature_bc_matrix"	# Single-nuclei data from Vidal et al. 2019 (https://insight.jci.org/articles/view/131092) obtained as raw files and processed with CellRanger (v.6.0.0.1) on default settings
+data_dir_kris <- "../cellranger_kriska/outs/filtered_feature_bc_matrix" # Single-nuclei data from Kriska et al. 2021 (https://pubmed.ncbi.nlm.nih.gov/33716653/) obtained as raw files and processed with CellRanger (v.6.0.0.1) on default settings (This dataset is not part of the manuscript)
 data_dir_lin <- "../_csv_lin"	# Single-cell data from Linscheid et al. 2019 (https://www.nature.com/articles/s41467-019-10709-9) obtained as normalized count files in .csv format 
-
 
 # For the first two datasets, we have to specifically integrate the spliced and unspliced matrices that have been generated as standard output formats via kallisto and bustools to be read into R via BusParse
 # Load and save them one after each other
@@ -102,10 +102,14 @@ seu.bl6[["unspliced"]] <- CreateAssayObject(uf)
 seu.bl6$tech <- "BL6"
 seu.bl6
 
-# Load the Vidal (vid) and Linscheid (lin) datasets as well and create the seurat objects
+# Load the Vidal (vid), Kriska (kris), and Linscheid (lin) datasets as well and create the seurat objects
 counts.vid <- Read10X(data.dir = data_dir_vid)
 seu.vid <- CreateSeuratObject(counts = counts.vid, min.cells = 3, min.features = 200, project = "Vidal_snRNAseq")
 seu.vid
+
+counts.kris <- Read10X(data.dir = data_dir_kris)
+seu.kris <- CreateSeuratObject(counts = counts.kris, min.cells = 3, min.features = 200, project = "Kriska_scRNAseq")
+seu.kris
 
 counts.lin <-read.table(file=paste0("../_csv_lin/GSE130710_normdata.csv"),sep=",", header = TRUE, row.names = 1, as.is = TRUE)
 seu.lin <- CreateSeuratObject(counts = counts.lin, min.cells = 3, min.features = 200, project = "Linscheid_scRNAseq")
@@ -115,6 +119,7 @@ seu.lin
 seu.fzt <- subset(seu.fzt, subset = nFeature_spliced > 200 & nFeature_spliced < 3000 & nFeature_unspliced > 200 & nFeature_unspliced < 3000)
 seu.bl6 <- subset(seu.bl6, subset = nFeature_spliced > 200 & nFeature_spliced < 3000 & nFeature_unspliced > 200 & nFeature_unspliced < 3000)
 seu.vid <- subset(seu.vid, subset = nFeature_RNA > 200 & nFeature_RNA < 3000)
+seu.kris <- subset(seu.kris, subset = nFeature_RNA > 200 & nFeature_RNA < 3000)
 seu.lin  <- subset(seu.lin , subset = nFeature_RNA > 200 & nFeature_RNA < 3000)
 
 # Processing all datasets in the same manner
@@ -142,6 +147,7 @@ seu.bl6 <- RunUMAP(seu.bl6, reduction = "pca", dims = 1:30)
 seu.bl6 <- RunUMAP(seu.bl6, reduction = "harmony", dims = 1:30)
 
 seu.vid <- NormalizeData(seu.vid, normalization.method = "LogNormalize", scale.factor = 10000) %>% FindVariableFeatures() %>% ScaleData() %>% RunPCA(verbose = FALSE)
+seu.kris <- NormalizeData(seu.kris) %>% FindVariableFeatures() %>% SCTransform() %>% RunPCA(verbose = FALSE)
 seu.lin <- NormalizeData(seu.lin, normalization.method = "LogNormalize", scale.factor = 10000) %>% FindVariableFeatures() %>% ScaleData() %>% RunPCA(verbose = FALSE)
 
 ##### Cluster the cells ######
@@ -176,10 +182,61 @@ pdf('bl6_clusters.pdf')
 DimPlot(seu.bl6, reduction = "umap", label = TRUE)
 dev.off()
 
+seu.vid <- RunUMAP(seu.vid, reduction = "pca", dims = 1:30)
 seu.vid <- FindNeighbors(object = seu.vid, dims = 1:30)
 seu.vid <- FindClusters(object = seu.vid, resolution = 1.525)
 DimPlot(seu.vid, reduction = "umap", label = TRUE)
 
+seu.kris <- RunUMAP(seu.kris, reduction = "pca", dims = 1:30)
+seu.kris <- FindNeighbors(object = seu.kris, dims = 1:30)
+seu.kris <- FindClusters(object = seu.kris, resolution = 0.525)
+pdf('ctrl_clusters_kris.pdf', width = 15, height=13)
+DimPlot(seu.kris, reduction = "umap", label = TRUE)
+dev.off()
+
+# Identify Pvalb and Vipr2 positive cells in the dataset
+pdf('feature_cell_Pvalb_Vipr2.pdf', width = 17, height = 12)
+FeaturePlot(seu.kris, max.cutoff = 3, pt.size = 1.5, features = c("Pvalb","Vipr2"),cols = c("#bcbcbc2b", "#ff0006eb", "#1eff00fe"), blend = TRUE)
+dev.off()
+
+cell_expression_kris <- as.matrix(GetAssayData(seu.kris, slot = "data"))
+write.csv(cell_expression_kris, file="cell_expression_kris_brain.csv")
+
+top10_kris <- read.table("val_3.3_10.txt", header = FALSE, sep = "") # scSynO predictions of glial cells for the top 20 features
+pdf('m.brain_clusters_val_kris.pdf',width = 15, height = 13)
+DimPlot(seu.kris, label=FALSE, cells.highlight= top10_kris, cols.highlight = "darkblue", cols= "grey",pt.size = 2.5)
+dev.off()
+
+top20_kris <- read.table("val_3.3_20.txt", header = FALSE, sep = "") # scSynO predictions of glial cells for the top 20 features
+pdf('m.brain_clusters_val_kris20.pdf',width = 15, height = 13)
+DimPlot(seu.kris, label=FALSE, cells.highlight= top20_kris, cols.highlight = "darkblue", cols= "grey",pt.size = 2.5)
+dev.off()
+
+cluster13_markers_kris_lr <- FindMarkers(seu.kris, ident.1 = "13", logfc.threshold = 0.25, test.use = "LR", only.pos = TRUE)
+write.csv(cluster13_markers_kris_lr, file="kris_marker_genes.csv") # Save all Marker genes in a .csv file
+
+
+
+pdf('feature_cell_C1ql1_Epha5_2.pdf', width = 25, height = 15)
+FeaturePlot(seu.kris, max.cutoff = 3, pt.size = 1.5, features = c("C1ql1","Epha5"), cols = c("#bcbcbc2b", "#ff0006eb", "#1eff00fe"), blend = TRUE)
+dev.off()
+
+pdf('feature_cell_kris.pdf', width = 15, height = 15)
+FeaturePlot(seu.kris, max.cutoff = 3, pt.size = 1.5, features = c("Pvalb","Vipr2","C1ql1","Epha5"),cols = c("#bcbcbc2b", "#ff0006eb"))
+dev.off()
+
+pdf('feature_cell_kris_10.pdf', width = 15, height = 15)
+FeaturePlot(seu.kris, max.cutoff = 3, pt.size = 1.5, features = c("Erbb4","Slc6a1","Cntnap2","Zfp804b","Kcnmb2","Dlx1as","Thsd7a","C1ql1","Inpp4b", "Nek7"),cols = c("#bcbcbc2b", "#ff0006eb"))
+dev.off()
+
+
+pdf('feature_cell_kris.pdf', width = 25, height = 15)
+p1_pv <- FeaturePlot(seu.kris, max.cutoff = 3, pt.size = 1.5, features = c("Pvalb","Vipr2"), blend = TRUE)
+p2_pv <- FeaturePlot(seu.kris, max.cutoff = 3, pt.size = 1.5, features = c("C1ql1","Epha5"), blend = TRUE)
+plot_grid(p1_pv, p2_pv)
+dev.off()
+
+seu.lin <- RunUMAP(seu.lin, reduction = "pca", dims = 1:18)
 seu.lin <- FindNeighbors(object = seu.lin, dims = 1:18)
 seu.lin <- FindClusters(object = seu.lin, resolution = 0.925)
 DimPlot(seu.vid, reduction = "umap", label = TRUE)
