@@ -14,6 +14,7 @@ We here introduce a Machine Learning (ML)-based oversampling method that uses ge
 
 ## How to use?
 sc-SynO can be used within all commonly available single-cell data analysis pipelines. The input files are *count.csv* files from raw or normalized (e.g., log, or SCT) data of the target rare-cell cluster (starting from 3 cells) and reference cells. The training can be done on all processed features or already identified marker genes for the rare-cell type of interest. Identified markers can be obtained elsewhere from in-build algorithms of Seurat, ML-based approaches, databases or domain expertise.
+
 Here, a brief example to extract cluster information of a Seurat object for rare-cell types of interest and the reference cells for training the model.
 
 ```r
@@ -25,6 +26,22 @@ cell_expression_reference <- as.matrix(GetAssayData(seurat_object, slot = "data"
 write.csv(cell_expression_rare_cells, file="cell_expression_rare_cells.csv")
 write.csv(cell_expression_reference, file="cell_expression_reference.csv")
 ```
+
+After applying sc-SynO in Python it is possible to check and refine the results with the original data. For this one has to integrate the obtained cell IDs with the following commands:
+
+```r
+# Indicate cells within the UMAP plot, predicted cells from sc-SynO can be fed back and highligthed for inspection.
+top20 <- read.table(".../predict_val_20.txt", header = FALSE, sep = "") # sc-SynO predictions for the top 20 features
+top50 <- read.table("...predict_val_50.txt", header = FALSE, sep = "") # sc-SynO predictions for the top 50 features 
+
+# Highlight one set of cells
+DimPlot(seurat_object, label=T, cells.highlight= top20$V1, cols.highlight = "darkblue", cols= "grey")
+DimPlot(seurat_object, label=T, cells.highlight= top50$V1, cols.highlight = "darkblue", cols= "grey")
+
+# Or highlight two or more sets of cells in the same UMAP plot, e.g., to see the effect of different feature amounts
+DimPlot(seurat_object, label=T, cells.highlight= list(top20$V1, top50$V1), cols.highlight = c("darkblue", "darkred"), cols= "grey") 
+```
+
 
 ## What are possible use cases?
  Applying sc-SynO on a novel dataset to identify the same rare-cell type is magnitudes less time-consuming than manually curated data processing and annotation of scRNA-Seq data. These facilitated cell enrichment can be used for more in-depth downstream analyses with the cell type of interest, without re-analyzing all the datasets.  Such a scenario can be of high interest for single-cell identification in cancer, hypothesis testing on larger cell sets, cell homology search across tissues, or other individual applications.
