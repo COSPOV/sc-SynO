@@ -29,7 +29,7 @@ write.csv(cell_expression_reference, file="cell_expression_reference.csv")
 ```
 
 ### The core of sc-SynO is LoRAS
-Localized Randomized Affine Shadowsampling (LoRAS) oversampling technique
+Localized Randomized Affine Shadowsampling ([LoRAS](https://doi.org/10.1007/s10994-020-05913-4)) oversampling technique
 
 #### Installation
 The latest version is available on PyPi and installable with the command: `pip install loras`
@@ -50,6 +50,7 @@ There are also optional parameters:
 - `num_generated_points` : Number of shadow points to be chosen for a random affine combination (default value: `ceil((len(maj_class_points) + len(min_class_points)) / len(min_class_points))`)
 - `num_aff_comb` : Number of generated LoRAS points for each nearest neighbours group (default value: `min_class_points.shape[1]`)   
 
+For a more in-depth look into the machine learning classification part, please have a look at the provided jupyter notebooks.
 
 ### Visualization of identified cells in R
 After applying sc-SynO in Python it is possible to check and refine the results with the original data. For this one has to integrate the obtained cell IDs with the following commands:
